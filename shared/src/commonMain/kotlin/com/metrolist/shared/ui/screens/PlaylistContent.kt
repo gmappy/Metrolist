@@ -723,13 +723,16 @@ fun PlaylistContent(
                                 }
                             }
 
+                            groupByControl?.let { control ->
+                                item(key = "group_by_control") {
+                                    Box(itemModifier) {
+                                        control()
+                                    }
+                                }
+                            }
+
                             if (displayedSongs.isNotEmpty()) {
-                                itemsIndexed(displayedSongs, key = {
-                                    index,
-                                    _,
-                                    ->
-                                    songKeys[index]
-                                }, contentType = { _, _ -> "song" }) { index, song ->
+                                val songRow: @Composable (Int, SongItem) -> Unit = { index, song ->
                                     PlaylistSongItemRow(
                                         song = song,
                                         index = index,
@@ -754,6 +757,50 @@ fun PlaylistContent(
                                         onMove = moveAndCommit,
                                         isSelected = isTrackSelected(song),
                                     )
+                                }
+
+                                if (
+                                    songGroups == null ||
+                                    reorderMode ||
+                                    displayedIndices != null ||
+                                    songGroups.sumOf { it.songs.size } != displayedSongs.size
+                                ) {
+                                    itemsIndexed(
+                                        displayedSongs,
+                                        key = { index, _ -> songKeys[index] },
+                                        contentType = { _, _ -> "song" },
+                                    ) { index, song ->
+                                        songRow(index, song)
+                                    }
+                                } else {
+                                    var groupStart = 0
+                                    songGroups.forEach { group ->
+                                        val start = groupStart
+                                        stickyHeader(key = "group_header_$start") {
+                                            Box(itemModifier) {
+                                                Text(
+                                                    text = group.key ?: unknownGroupTitle,
+                                                    style = MaterialTheme.typography.titleSmall,
+                                                    color = MaterialTheme.colorScheme.primary,
+                                                    modifier =
+                                                        Modifier
+                                                            .fillMaxWidth()
+                                                            .background(MaterialTheme.colorScheme.surface)
+                                                            .padding(
+                                                                horizontal = CollectionHeaderHorizontalPadding,
+                                                                vertical = 8.dp,
+                                                            ),
+                                                )
+                                            }
+                                        }
+                                        group.songs.indices.forEach { offset ->
+                                            val index = start + offset
+                                            item(key = songKeys[index], contentType = "song") {
+                                                songRow(index, displayedSongs[index])
+                                            }
+                                        }
+                                        groupStart += group.songs.size
+                                    }
                                 }
                             }
 
